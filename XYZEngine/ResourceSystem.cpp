@@ -113,10 +113,98 @@ namespace XYZEngine
 		textureMaps.erase(textureMap);
 	}
 
+	void ResourceSystem::loadMusic(const std::string& name, const std::string& sourcePath)
+	{
+		if (musics.find(name) != musics.end())
+		{
+			return;
+		}
+		sf::Music* newMusic = new sf::Music();
+		if (newMusic->openFromFile(sourcePath))
+		{
+			musics.emplace(name, newMusic);
+		}
+		else
+		{
+			delete newMusic;
+		}
+	}
+
+	sf::Music* ResourceSystem::GetMusicShared(const std::string& name) const
+	{
+		auto it = musics.find(name);
+		if (it == musics.end())
+		{
+			return nullptr;
+		}
+		return it->second;
+	}
+
+	void ResourceSystem::DeleteSharedMusic(const std::string& name)
+	{
+		auto it = musics.find(name);
+		if (it == musics.end())
+			return;
+		sf::Music* deletingMusic = it->second;
+
+		if (currentMusicName == name)
+		{
+			deletingMusic->stop();
+			currentMusicName.clear();
+		}
+
+		musics.erase(it);
+		delete deletingMusic;
+	}
+
+	bool ResourceSystem::PlayMusic(const std::string& name, bool loop, float volume)
+	{
+		sf::Music* music = GetMusicShared(name);
+		if (music)
+			return false;
+		if (!currentMusicName.empty() && currentMusicName != name)
+		{
+			StopMusic();
+		}
+		
+		music->setLoop(loop);
+		music->setVolume(volume);
+		music->play();
+
+		currentMusicName = name;
+		return true;
+	}
+
+	void ResourceSystem::StopMusic()
+	{
+		if (currentMusicName.empty())
+			return;
+
+		sf::Music* music = GetMusicShared(currentMusicName);
+		if (music)
+		{
+			music->stop();
+		}
+
+		currentMusicName.clear();
+	}
+
+	void ResourceSystem::SetMusicVolume(float volume)
+	{
+		if (currentMusicName.empty())
+			return;
+		sf::Music* music = GetMusicShared(currentMusicName);
+		if (music)
+		{
+			music->setVolume(volume);
+		}
+	}
+
 	void ResourceSystem::Clear()
 	{
 		DeleteAllTextures();
 		DeleteAllTextureMaps();
+		DeleteAllMusics();
 	}
 
 	void ResourceSystem::DeleteAllTextures()
@@ -146,5 +234,13 @@ namespace XYZEngine
 		{
 			DeleteSharedTextureMap(key);
 		}
+	}
+	void ResourceSystem::DeleteAllMusics()
+	{
+		std::vector<std::string> keysToDelete;
+		for (const auto& pair : musics)
+			keysToDelete.push_back(pair.first);
+		for (const auto& key : keysToDelete)
+			DeleteSharedMusic(key);
 	}
 }
